@@ -1,23 +1,14 @@
 // swift-tools-version: 6.2
 import CompilerPluginSupport
-import Foundation
 import PackageDescription
-
-let sweetCookieKitPath = "../SweetCookieKit"
-let useLocalSweetCookieKit =
-    ProcessInfo.processInfo.environment["AGENTBAR_USE_LOCAL_SWEETCOOKIEKIT"] == "1"
-let sweetCookieKitDependency: Package.Dependency =
-    useLocalSweetCookieKit && FileManager.default.fileExists(atPath: sweetCookieKitPath)
-    ? .package(path: sweetCookieKitPath)
-    : .package(url: "https://github.com/steipete/SweetCookieKit", from: "0.4.0")
 
 let package = Package(
     name: "AgentBar",
     dependencies: [
-        .package(url: "https://github.com/steipete/Commander", from: "0.2.1"),
+        .package(path: "Vendor/Commander"),
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
         .package(url: "https://github.com/apple/swift-syntax", from: "600.0.1"),
-        sweetCookieKitDependency,
+        .package(path: "Vendor/SweetCookieKit"),
     ],
     targets: {
         let targets: [Target] = [
