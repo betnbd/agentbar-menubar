@@ -19,6 +19,10 @@ The current runnable surface is a Linux executable plus a bundled CLI.
 - Edit `~/.agentbar/config.json` to enable the providers you use.
 - Use `swift run AgentBarCLI --help` for detailed CLI-driven usage checks.
 
+### Start on login
+- Run `./bin/install-agentbar-autostart.sh` to build the release binary, link `~/.local/bin/agentbar`, and install `~/.config/autostart/agentbar.desktop`.
+- The login command used is `~/.local/bin/agentbar tray`.
+
 ## Providers
 
 - Codex
