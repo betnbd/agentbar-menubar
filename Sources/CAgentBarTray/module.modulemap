@@ -1,0 +1,4 @@
+module CAgentBarTray [system] {
+    header "shim.h"
+    export *
+}

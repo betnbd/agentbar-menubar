@@ -1,0 +1,4 @@
+.build/
+.swiftpm/
+TASKS.local.md
+PROJECT.local.md
