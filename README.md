@@ -3,6 +3,12 @@
 Ubuntu/GNOME/Linux-only usage tracker for provider limits, reset windows, and status across multiple services.
 The current runnable surface is a Linux executable plus a bundled CLI.
 
+## Highlights
+- GNOME tray app with compact live status for supported providers.
+- Unified usage panel with reset windows, plan visibility, spend summaries, and recommendations.
+- Local-first data model: reads provider-specific local state, logs, and config instead of shipping data to a backend.
+- Bundled CLI for scripting, debugging, and non-GUI environments.
+
 ## Install
 
 ### Requirements
@@ -62,6 +68,11 @@ The current runnable surface is a Linux executable plus a bundled CLI.
 
 ## Privacy note
 The app does not crawl your filesystem; it reads a small set of known locations such as config files, local usage logs, and provider-specific local data when the related features are enabled.
+
+## Best Fit
+- Ubuntu or another modern Linux desktop with GNOME/AppIndicator support.
+- Users who want a local tray monitor for reset windows, spend, and headroom across coding tools.
+- Developers who want both a tray UI and a CLI path from the same codebase.
 
 ## Docs
 
