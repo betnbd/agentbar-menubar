@@ -98,6 +98,8 @@ enum AgentBarTrayHostError: LocalizedError {
 
 final class AgentBarTrayHost: @unchecked Sendable {
     private static let defaultIndicatorIcon = "utilities-terminal-symbolic"
+    private static let statusNotifierWatcherStartupGracePeriod: TimeInterval = 8
+    private static let statusNotifierWatcherPollInterval: TimeInterval = 0.25
     private let indicator: UnsafeMutablePointer<AppIndicator>
     private let menu: UnsafeMutablePointer<GtkWidget>
     private let recommendationItem: UnsafeMutablePointer<GtkWidget>
@@ -234,6 +236,23 @@ final class AgentBarTrayHost: @unchecked Sendable {
     }
 
     private static func statusNotifierWatcherAvailable(environment: [String: String]) -> Bool {
+        let deadline = Date().addingTimeInterval(Self.statusNotifierWatcherStartupGracePeriod)
+        repeat {
+            if self.statusNotifierWatcherAvailableNow(environment: environment) {
+                return true
+            }
+
+            guard Date() < deadline else {
+                break
+            }
+
+            Thread.sleep(forTimeInterval: Self.statusNotifierWatcherPollInterval)
+        } while true
+
+        return false
+    }
+
+    private static func statusNotifierWatcherAvailableNow(environment: [String: String]) -> Bool {
         if self.commandSucceeds(
             "gdbus",
             arguments: [
