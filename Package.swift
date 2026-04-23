@@ -1,6 +1,39 @@
 // swift-tools-version: 6.2
+import Foundation
 import CompilerPluginSupport
 import PackageDescription
+
+func agentBarCommandSucceeds(_ arguments: [String]) -> Bool {
+    #if os(Linux)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = arguments
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
+    #else
+        false
+    #endif
+}
+
+let traySupportAvailable = agentBarCommandSucceeds([
+    "pkg-config",
+    "--exists",
+    "ayatana-appindicator3-0.1",
+    "gtk+-3.0",
+])
+
+let trayOnlySources = [
+    "GNOMETrayHost.swift",
+    "UsagePanelController.swift",
+]
 
 let package = Package(
     name: "AgentBar",
@@ -11,23 +44,30 @@ let package = Package(
         .package(path: "Vendor/SweetCookieKit"),
     ],
     targets: {
-        let targets: [Target] = [
-            .systemLibrary(
-                name: "CAgentBarTray",
-                pkgConfig: "ayatana-appindicator3-0.1",
-                providers: [
-                    .apt([
-                        "libayatana-appindicator3-dev",
-                        "libgtk-3-dev",
+        var targets: [Target] = []
+
+        if traySupportAvailable {
+            targets += [
+                .systemLibrary(
+                    name: "CAgentBarTray",
+                    pkgConfig: "ayatana-appindicator3-0.1",
+                    providers: [
+                        .apt([
+                            "libayatana-appindicator3-dev",
+                            "libgtk-3-dev",
+                        ]),
                     ]),
-                ]),
-            .target(
-                name: "CAgentBarTrayShim",
-                dependencies: [
-                    "CAgentBarTray",
-                ],
-                path: "Sources/CAgentBarTrayShim",
-                publicHeadersPath: "include"),
+                .target(
+                    name: "CAgentBarTrayShim",
+                    dependencies: [
+                        "CAgentBarTray",
+                    ],
+                    path: "Sources/CAgentBarTrayShim",
+                    publicHeadersPath: "include"),
+            ]
+        }
+
+        targets += [
             .target(
                 name: "AgentBarCore",
                 dependencies: [
@@ -62,11 +102,11 @@ let package = Package(
                 ]),
             .executableTarget(
                 name: "AgentBar",
-                dependencies: [
+                dependencies: ([
                     "AgentBarCore",
-                    "CAgentBarTrayShim",
-                ],
+                ] + (traySupportAvailable ? ["CAgentBarTrayShim"] : [])),
                 path: "Sources/AgentBar",
+                exclude: traySupportAvailable ? [] : trayOnlySources,
                 swiftSettings: [
                     .enableUpcomingFeature("StrictConcurrency"),
                 ]),

@@ -3,6 +3,16 @@
 
 import PackageDescription
 
+#if os(Linux)
+let sweetCookieKitLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags(["-Xlinker", "-l:libsqlite3.so.0"]),
+]
+#else
+let sweetCookieKitLinkerSettings: [LinkerSetting] = [
+    .linkedLibrary("sqlite3"),
+]
+#endif
+
 let package = Package(
     name: "SweetCookieKit",
     platforms: [
@@ -26,9 +36,7 @@ let package = Package(
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
             ],
-            linkerSettings: [
-                .linkedLibrary("sqlite3"),
-            ]
+            linkerSettings: sweetCookieKitLinkerSettings
         ),
         .testTarget(
             name: "SweetCookieKitTests",

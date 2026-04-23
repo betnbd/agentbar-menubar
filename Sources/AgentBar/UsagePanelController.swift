@@ -42,58 +42,9 @@ private struct UsagePanelViewState {
 }
 
 private enum UsagePanelTheme {
-    static let css = """
-    window#agentbar-panel-window {
-        background-color: #091626;
-        color: #eff7ff;
-    }
-
-    scrolledwindow#agentbar-panel-scroll {
-        background: transparent;
-    }
-
-    box#panel-content {
-        padding: 18px;
-    }
-
-    box.card {
-        background: rgba(7, 18, 33, 0.78);
-        border: 1px solid rgba(118, 168, 224, 0.24);
-        border-radius: 18px;
-        padding: 16px;
-    }
-
-    box.hero-card {
-        background: rgba(20, 70, 118, 0.92);
-        border: 1px solid rgba(106, 190, 255, 0.35);
-    }
-
-    button.provider-tab {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(118, 168, 224, 0.18);
-        border-radius: 999px;
-        color: #c7ddf6;
-        padding: 8px 14px;
-    }
-
-    button.provider-tab.selected {
-        background: #1363b2;
-        border-color: rgba(148, 213, 255, 0.7);
-        color: #ffffff;
-    }
-
-    button.provider-tab:disabled {
-        color: rgba(199, 221, 246, 0.45);
-    }
-
-    button.footer-action {
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(118, 168, 224, 0.22);
-        border-radius: 12px;
-        color: #eff7ff;
-        padding: 9px 14px;
-    }
-    """
+    /// Keep the tray panel unstyled until we have a GTK 3 stylesheet that parses
+    /// cleanly across current GNOME 50 themes and shell sessions.
+    static let css = ""
 }
 
 private final class UsagePanelRenderContext {

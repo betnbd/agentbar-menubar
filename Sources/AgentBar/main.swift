@@ -8,9 +8,16 @@ enum AgentBar {
 
         switch command {
         case "tray":
-            if try AgentBarTrayHost.runIfAvailable() {
-                return
+            #if canImport(CAgentBarTrayShim)
+            do {
+                if try AgentBarTrayHost.runIfAvailable() {
+                    return
+                }
+            } catch {
+                let message = "Tray host unavailable: \(error.localizedDescription)\n"
+                FileHandle.standardError.write(Data(message.utf8))
             }
+            #endif
             try self.printSummary(showGUIFallbackMessage: true)
         case "bootstrap":
             try self.bootstrap()
@@ -27,6 +34,14 @@ enum AgentBar {
             self.printHelp()
             Foundation.exit(1)
         }
+    }
+
+    private static var trayBuildLine: String {
+        #if canImport(CAgentBarTrayShim)
+        "- Run `swift run AgentBar tray` from GNOME to launch the task-bar indicator"
+        #else
+        "- Install `libgtk-3-dev` and `libayatana-appindicator3-dev`, then rebuild to enable the GNOME tray indicator"
+        #endif
     }
 
     private static func bootstrap() throws {
@@ -56,6 +71,9 @@ enum AgentBar {
         if showGUIFallbackMessage {
             print("GUI tray host unavailable in this session; showing terminal summary instead.")
         }
+        #if !canImport(CAgentBarTrayShim)
+        print("Tray support was not built because GTK 3 / Ayatana AppIndicator development files were unavailable.")
+        #endif
         print("Config: \(store.fileURL.path)")
         print("Enabled providers: \(enabled.isEmpty ? "none" : enabled.joined(separator: ", "))")
         print("")
@@ -63,7 +81,12 @@ enum AgentBar {
         print("- Edit ~/.agentbar/config.json to enable or reorder providers")
         print("- Run `swift run AgentBarCLI --help` for detailed usage commands")
         print("- Run `swift run AgentBar providers` to inspect provider enablement")
-        print("- Run `swift run AgentBar tray` from GNOME to launch the task-bar indicator")
+        print(self.trayBuildLine)
+        #if canImport(CAgentBarTrayShim)
+        print("- If GNOME 50 still hides the tray, enable `ubuntu-appindicators@ubuntu.com`")
+        print("  in Extension Manager and retry")
+        print("- Set `AGENTBAR_FORCE_TRAY=1` to bypass the watcher preflight while troubleshooting")
+        #endif
     }
 
     private static func printHelp() {

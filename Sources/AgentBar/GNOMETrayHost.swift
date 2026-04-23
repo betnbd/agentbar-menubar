@@ -1,3 +1,4 @@
+#if canImport(CAgentBarTrayShim)
 import AgentBarCore
 import CAgentBarTrayShim
 import Foundation
@@ -81,6 +82,7 @@ private final class AgentBarTrayRenderContext {
 enum AgentBarTrayHostError: LocalizedError {
     case unavailable
     case initializationFailed
+    case unavailableWithReason(String)
 
     var errorDescription: String? {
         switch self {
@@ -88,6 +90,8 @@ enum AgentBarTrayHostError: LocalizedError {
             "GNOME tray host is unavailable in the current session."
         case .initializationFailed:
             "Failed to initialize the GNOME tray host."
+        case let .unavailableWithReason(reason):
+            reason
         }
     }
 }
@@ -186,8 +190,12 @@ final class AgentBarTrayHost: @unchecked Sendable {
     }
 
     static func runIfAvailable() throws -> Bool {
-        guard self.shouldAttemptTrayHost else {
+        let environment = ProcessInfo.processInfo.environment
+        guard let availability = self.trayAvailability(environment: environment) else {
             return false
+        }
+        guard availability.available else {
+            throw AgentBarTrayHostError.unavailableWithReason(availability.reason)
         }
 
         let host = try AgentBarTrayHost()
@@ -195,9 +203,82 @@ final class AgentBarTrayHost: @unchecked Sendable {
         return true
     }
 
-    private static var shouldAttemptTrayHost: Bool {
-        let env = ProcessInfo.processInfo.environment
-        return !(env["DISPLAY"]?.isEmpty ?? true) || !(env["WAYLAND_DISPLAY"]?.isEmpty ?? true)
+    private static func trayAvailability(environment: [String: String]) -> (available: Bool, reason: String)? {
+        if environment["AGENTBAR_FORCE_TRAY"] == "1" {
+            return (true, "Tray startup forced by AGENTBAR_FORCE_TRAY=1.")
+        }
+
+        guard self.hasGraphicalSession(environment: environment) else {
+            return nil
+        }
+        guard !(environment["DBUS_SESSION_BUS_ADDRESS"]?.isEmpty ?? true) else {
+            return (
+                false,
+                "Tray host unavailable: no D-Bus session bus was detected in this graphical session.")
+        }
+        guard self.statusNotifierWatcherAvailable(environment: environment) else {
+            return (
+                false,
+                """
+                Tray host unavailable: org.kde.StatusNotifierWatcher is not present on the session bus. \
+                On Ubuntu 26.04 GNOME 50 this usually means the AppIndicator extension is not \
+                enabled in the current session. Enable `ubuntu-appindicators@ubuntu.com` in \
+                Extension Manager or with `gnome-extensions`, then log out/in.
+                """)
+        }
+        return (true, "Tray host prerequisites are available.")
+    }
+
+    private static func hasGraphicalSession(environment: [String: String]) -> Bool {
+        !(environment["DISPLAY"]?.isEmpty ?? true) || !(environment["WAYLAND_DISPLAY"]?.isEmpty ?? true)
+    }
+
+    private static func statusNotifierWatcherAvailable(environment: [String: String]) -> Bool {
+        if self.commandSucceeds(
+            "gdbus",
+            arguments: [
+                "introspect",
+                "--session",
+                "--dest",
+                "org.kde.StatusNotifierWatcher",
+                "--object-path",
+                "/StatusNotifierWatcher",
+            ],
+            environment: environment)
+        {
+            return true
+        }
+
+        return self.commandSucceeds(
+            "busctl",
+            arguments: [
+                "--user",
+                "status",
+                "org.kde.StatusNotifierWatcher",
+            ],
+            environment: environment)
+    }
+
+    private static func commandSucceeds(
+        _ command: String,
+        arguments: [String],
+        environment: [String: String])
+        -> Bool
+    {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [command] + arguments
+        process.environment = environment
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 
     private func run() {
@@ -469,3 +550,4 @@ private func agentBarTrayApplyRenderCallback(_ context: UnsafeMutableRawPointer?
     let renderContext = Unmanaged<AgentBarTrayRenderContext>.fromOpaque(context).takeRetainedValue()
     renderContext.host.apply(renderContext: renderContext)
 }
+#endif

@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLS_DIR="${ROOT_DIR}/.build/lint-tools"
 BIN_DIR="${TOOLS_DIR}/bin"
+source "${ROOT_DIR}/Scripts/swift_runtime_env.sh"
 
 SWIFTFORMAT_VERSION="0.59.1"
 SWIFTLINT_VERSION="0.63.2"
@@ -14,20 +15,6 @@ SWIFTLINT_SHA256_DARWIN="c59a405c85f95b92ced677a500804e081596a4cae4a6a485af76065
 
 log() { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-
-linux_runtime_env() {
-  if [[ "$(uname -s)" != "Linux" ]]; then
-    return 0
-  fi
-
-  local swiftly_root="${HOME}/.local/share/swiftly/toolchains/6.3.1/usr"
-  local compat_xml="${HOME}/.local/compat/noble-libxml2/usr/lib/x86_64-linux-gnu"
-  local compat_icu="${HOME}/.local/compat/noble-icu/usr/lib/x86_64-linux-gnu"
-
-  export SOURCEKIT_TOOLCHAIN_PATH="$swiftly_root"
-  export LINUX_SOURCEKIT_LIB_PATH="${swiftly_root}/lib"
-  export LD_LIBRARY_PATH="${swiftly_root}/lib:${compat_xml}:${compat_icu}:${LD_LIBRARY_PATH:-}"
-}
 
 sha256_value() {
   local path="$1"
@@ -93,7 +80,7 @@ install_zip_binary() {
 }
 
 mkdir -p "$BIN_DIR"
-linux_runtime_env
+agentbar_export_swift_runtime_env
 
 if [[ -x "${BIN_DIR}/swiftformat" && -x "${BIN_DIR}/swiftlint" ]]; then
   if [[ "$("${BIN_DIR}/swiftformat" --version 2>/dev/null || true)" == "${SWIFTFORMAT_VERSION}" ]] \
@@ -142,6 +129,6 @@ case "$OS" in
 esac
 
 log "==> Installed lint tools to ${BIN_DIR}"
-linux_runtime_env
+agentbar_export_swift_runtime_env
 "${BIN_DIR}/swiftformat" --version
 "${BIN_DIR}/swiftlint" version

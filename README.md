@@ -13,15 +13,27 @@ The current runnable surface is a Linux executable plus a bundled CLI.
 
 ### Requirements
 - Ubuntu or another modern Linux distribution with Swift 6 toolchain support
+- For tray builds: `libgtk-3-dev` and `libayatana-appindicator3-dev`
+- For GNOME tray visibility on Ubuntu 26.04 / GNOME 50: `gnome-shell-extension-appindicator` (provided on Ubuntu by `gnome-shell-ubuntu-extensions`)
 
 ### First run
 - Run `swift run AgentBar` to bootstrap a default config if needed.
 - Edit `~/.agentbar/config.json` to enable the providers you use.
 - Use `swift run AgentBarCLI --help` for detailed CLI-driven usage checks.
+- If the tray target was built without GTK/AppIndicator headers, `AgentBar` will fall back to the terminal summary until those packages are installed and you rebuild.
+- If `swift run AgentBar tray` says `org.kde.StatusNotifierWatcher` is unavailable, GNOME is running but the AppIndicator shell extension is not active yet.
 
 ### Start on login
 - Run `./bin/install-agentbar-autostart.sh` to build the release binary, link `~/.local/bin/agentbar`, and install `~/.config/autostart/agentbar.desktop`.
 - The login command used is `~/.local/bin/agentbar tray`.
+
+### GNOME 50 notes
+- Ubuntu 26.04 ships GNOME 50 and still needs the AppIndicator extension for tray icons.
+- Install `gnome-shell-ubuntu-extensions` (or another provider for `gnome-shell-extension-appindicator`) if the extension files are missing.
+- Then enable `ubuntu-appindicators@ubuntu.com` in Extension Manager or with `gnome-extensions`, and log out/back in if the session bus still lacks `org.kde.StatusNotifierWatcher`.
+- AgentBar checks for `org.kde.StatusNotifierWatcher` before starting the tray host so it can fall back cleanly when the extension is unavailable.
+- For troubleshooting only, `AGENTBAR_FORCE_TRAY=1 swift run AgentBar tray` bypasses that preflight check.
+- If GTK prints `Theme parsing error: gtk.css:...` on startup, check `~/.config/gtk-3.0/gtk.css` before debugging AgentBar. User theme tools can inject invalid GTK CSS there.
 
 ## Providers
 
@@ -56,7 +68,8 @@ The current runnable surface is a Linux executable plus a bundled CLI.
 - The Linux GNOME tray indicator is working in a live GUI session.
 - The GTK panel supports dual-provider Claude + Codex monitoring with provider switching.
 - The tray surfaces compact dual-provider status, plan-aware summaries, and a recommendation line.
-- The main remaining work is release hardening: broader live-session validation, GTK/theme warning follow-up, and more UI-focused tests.
+- The main remaining work is release hardening and more UI-focused tests.
+- Ubuntu 26.04 notes: the app still targets GTK 3 + Ayatana AppIndicator, and GNOME 50 sessions need the AppIndicator shell extension enabled so the tray icon is actually hosted.
 
 ## Features
 - Multi-provider config and usage fetching.

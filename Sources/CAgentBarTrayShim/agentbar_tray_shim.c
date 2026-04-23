@@ -10,6 +10,8 @@ typedef struct {
 
 static GLogFunc agentbar_previous_default_log_handler = NULL;
 static gpointer agentbar_previous_default_log_user_data = NULL;
+static guint agentbar_gtk_log_handler = 0;
+static guint agentbar_gtk_theme_log_handler = 0;
 
 static void agentbar_log_filter(
     const gchar *log_domain,
@@ -43,6 +45,16 @@ static void agentbar_install_warning_filters(void) {
     static gsize installed = 0;
     if (g_once_init_enter(&installed)) {
         agentbar_previous_default_log_handler = g_log_set_default_handler(
+            agentbar_log_filter,
+            NULL);
+        agentbar_gtk_log_handler = g_log_set_handler(
+            "Gtk",
+            G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
+            agentbar_log_filter,
+            NULL);
+        agentbar_gtk_theme_log_handler = g_log_set_handler(
+            "GtkTheme",
+            G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
             agentbar_log_filter,
             NULL);
         g_once_init_leave(&installed, 1);
