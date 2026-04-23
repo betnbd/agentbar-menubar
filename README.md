@@ -26,6 +26,7 @@ The current runnable surface is a Linux executable plus a bundled CLI.
 ### Start on login
 - Run `./bin/install-agentbar-autostart.sh` to build the release binary, link `~/.local/bin/agentbar`, and install `~/.config/autostart/agentbar.desktop`.
 - The login command used is `~/.local/bin/agentbar tray`.
+- Validated on Ubuntu 26.04 / GNOME 50: the installer creates a working `agentbar.desktop` autostart entry and a symlinked release binary at `~/.local/bin/agentbar`.
 
 ### GNOME 50 notes
 - Ubuntu 26.04 ships GNOME 50 and still needs the AppIndicator extension for tray icons.
