@@ -12,6 +12,7 @@
     "run": "swift run AgentBar",
     "cli": "swift run AgentBarCLI --help",
     "install:cli": "./bin/install-agentbar-cli.sh",
-    "install:autostart": "./bin/install-agentbar-autostart.sh"
+    "install:autostart": "./bin/install-agentbar-autostart.sh",
+    "install:launcher": "./bin/install-agentbar-launcher.sh"
   }
 }

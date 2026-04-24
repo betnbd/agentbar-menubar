@@ -25,15 +25,21 @@ The current runnable surface is a Linux executable plus a bundled CLI.
 
 ### Start on login
 - Run `./bin/install-agentbar-autostart.sh` to build the release binary, link `~/.local/bin/agentbar`, and install `~/.config/autostart/agentbar.desktop`.
-- The login command used is `~/.local/bin/agentbar tray`.
+- The login command used is `env AGENTBAR_AUTOSTART=1 ~/.local/bin/agentbar tray`, which gives GNOME's AppIndicator watcher extra time to appear during session startup.
 - Validated on Ubuntu 26.04 / GNOME 50: the installer creates a working `agentbar.desktop` autostart entry and a symlinked release binary at `~/.local/bin/agentbar`.
+
+### App launcher
+- Run `./bin/install-agentbar-launcher.sh` to build the release binary, link `~/.local/bin/agentbar`, and install `~/.local/share/applications/agentbar.desktop`.
+- The launcher command used is `~/.local/bin/agentbar tray`.
+- The same flow is available through `pnpm install:launcher`.
 
 ### GNOME 50 notes
 - Ubuntu 26.04 ships GNOME 50 and still needs the AppIndicator extension for tray icons.
 - Install `gnome-shell-ubuntu-extensions` (or another provider for `gnome-shell-extension-appindicator`) if the extension files are missing.
 - Then enable `ubuntu-appindicators@ubuntu.com` in Extension Manager or with `gnome-extensions`, and log out/back in if the session bus still lacks `org.kde.StatusNotifierWatcher`.
-- AgentBar checks for `org.kde.StatusNotifierWatcher` before starting the tray host so it can fall back cleanly when the extension is unavailable.
+- AgentBar checks for `org.kde.StatusNotifierWatcher` before starting the tray host so it can fall back cleanly when the extension is unavailable. Manual launches wait briefly; autostart launches wait longer because GNOME may publish the watcher after user autostart entries begin.
 - For troubleshooting only, `AGENTBAR_FORCE_TRAY=1 swift run AgentBar tray` bypasses that preflight check.
+- For troubleshooting startup timing, `AGENTBAR_STATUS_NOTIFIER_WAIT_SECONDS=<seconds>` overrides the watcher wait.
 - If GTK prints `Theme parsing error: gtk.css:...` on startup, check `~/.config/gtk-3.0/gtk.css` before debugging AgentBar. User theme tools can inject invalid GTK CSS there.
 
 ## Providers

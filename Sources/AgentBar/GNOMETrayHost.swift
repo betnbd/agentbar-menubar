@@ -98,7 +98,8 @@ enum AgentBarTrayHostError: LocalizedError {
 
 final class AgentBarTrayHost: @unchecked Sendable {
     private static let defaultIndicatorIcon = "utilities-terminal-symbolic"
-    private static let statusNotifierWatcherStartupGracePeriod: TimeInterval = 8
+    private static let statusNotifierWatcherInteractiveGracePeriod: TimeInterval = 8
+    private static let statusNotifierWatcherAutostartGracePeriod: TimeInterval = 60
     private static let statusNotifierWatcherPollInterval: TimeInterval = 0.25
     private let indicator: UnsafeMutablePointer<AppIndicator>
     private let menu: UnsafeMutablePointer<GtkWidget>
@@ -236,7 +237,7 @@ final class AgentBarTrayHost: @unchecked Sendable {
     }
 
     private static func statusNotifierWatcherAvailable(environment: [String: String]) -> Bool {
-        let deadline = Date().addingTimeInterval(Self.statusNotifierWatcherStartupGracePeriod)
+        let deadline = Date().addingTimeInterval(Self.statusNotifierWatcherGracePeriod(environment: environment))
         repeat {
             if self.statusNotifierWatcherAvailableNow(environment: environment) {
                 return true
@@ -250,6 +251,20 @@ final class AgentBarTrayHost: @unchecked Sendable {
         } while true
 
         return false
+    }
+
+    private static func statusNotifierWatcherGracePeriod(environment: [String: String]) -> TimeInterval {
+        if let override = environment["AGENTBAR_STATUS_NOTIFIER_WAIT_SECONDS"].flatMap(TimeInterval.init),
+           override >= 0
+        {
+            return override
+        }
+
+        if environment["AGENTBAR_AUTOSTART"] == "1" {
+            return Self.statusNotifierWatcherAutostartGracePeriod
+        }
+
+        return Self.statusNotifierWatcherInteractiveGracePeriod
     }
 
     private static func statusNotifierWatcherAvailableNow(environment: [String: String]) -> Bool {

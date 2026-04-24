@@ -10,7 +10,7 @@ agentbar_require_tray_dev_packages
 
 BIN_SOURCE="${ROOT}/.build/release/AgentBar"
 BIN_TARGET="${HOME}/.local/bin/agentbar"
-DESKTOP_DIR="${HOME}/.config/autostart"
+DESKTOP_DIR="${HOME}/.local/share/applications"
 DESKTOP_FILE="${DESKTOP_DIR}/agentbar.desktop"
 
 echo "==> build release AgentBar"
@@ -24,13 +24,20 @@ cat >"$DESKTOP_FILE" <<EOF
 Type=Application
 Version=1.0
 Name=AgentBar
-Comment=Launch AgentBar tray at login
-Exec=env AGENTBAR_AUTOSTART=1 ${BIN_TARGET} tray
-X-GNOME-Autostart-enabled=true
+Comment=Launch AgentBar tray
+Exec=${BIN_TARGET} tray
+Icon=utilities-terminal-symbolic
 Terminal=false
 Categories=Utility;
+StartupNotify=false
 EOF
 
+chmod +x "$DESKTOP_FILE"
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+fi
+
 echo "Linked ${BIN_TARGET} -> ${BIN_SOURCE}"
-echo "Installed autostart entry at ${DESKTOP_FILE}"
-echo "AgentBar will launch with: env AGENTBAR_AUTOSTART=1 ${BIN_TARGET} tray"
+echo "Installed launcher entry at ${DESKTOP_FILE}"
+echo "AgentBar will launch with: ${BIN_TARGET} tray"
