@@ -98,8 +98,6 @@ The app does not crawl your filesystem; it reads a small set of known locations 
 - Users who want a local tray monitor for reset windows, spend, and headroom across coding tools.
 - Developers who want both a tray UI and a CLI path from the same codebase.
 
-## Docs
-
 ## Getting started (dev)
 - Clone the repo and run the scripts directly.
 - Use `./Scripts/compile_and_run.sh` for the standard Linux dev loop.
