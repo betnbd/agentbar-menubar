@@ -115,6 +115,8 @@ final class AgentBarTrayHost: @unchecked Sendable {
     private let trayIconRenderer = TrayIconRenderer()
     private var usagePanel: UsagePanelController?
     private var refreshID = 0
+    private var isRefreshing = false
+    private var pendingRefresh = false
 
     private init() throws {
         guard agentbar_gtk_init_check() == 1 else {
@@ -190,6 +192,7 @@ final class AgentBarTrayHost: @unchecked Sendable {
         agentbar_indicator_set_status_active(self.indicator)
         agentbar_widget_show_all(self.menu)
         try self.refresh()
+        self.startAutoRefreshLoop()
     }
 
     static func runIfAvailable() throws -> Bool {
@@ -321,6 +324,13 @@ final class AgentBarTrayHost: @unchecked Sendable {
 
     fileprivate func refresh() throws {
         let state = try AgentBarTrayState.load()
+        guard !self.isRefreshing else {
+            self.pendingRefresh = true
+            self.setMenuItem(self.statusItem, label: "Refresh queued after current load.")
+            return
+        }
+
+        self.isRefreshing = true
         self.setMenuItem(self.recommendationItem, label: "Refreshing usage summary...")
         self.setMenuItem(
             self.claudeItem,
@@ -332,6 +342,18 @@ final class AgentBarTrayHost: @unchecked Sendable {
         self.setIndicatorLabel(state.indicatorLabel)
         self.usagePanel?.refresh()
         self.refreshUsageSummary(fallbackState: state)
+    }
+
+    private func startAutoRefreshLoop() {
+        let interval = TrayAutoRefreshPolicy.interval()
+        Task { [weak self] in
+            while let self {
+                try? await Task.sleep(for: .seconds(interval))
+                agentbar_invoke_on_main_thread(
+                    agentBarTrayAutoRefreshCallback,
+                    Unmanaged.passUnretained(self).toOpaque())
+            }
+        }
     }
 
     fileprivate func openCodexPanel() {
@@ -443,12 +465,17 @@ final class AgentBarTrayHost: @unchecked Sendable {
 
     fileprivate func apply(renderContext: AgentBarTrayRenderContext) {
         guard renderContext.refreshID == self.refreshID else { return }
+        self.isRefreshing = false
         self.setIndicatorLabel(renderContext.indicatorLabel)
         self.setIndicatorIcon(renderContext.renderedIcon)
         self.setMenuItem(self.recommendationItem, label: renderContext.recommendationLine)
         self.setMenuItem(self.claudeItem, label: renderContext.claudeLine)
         self.setMenuItem(self.codexItem, label: renderContext.codexLine)
         self.setMenuItem(self.statusItem, label: renderContext.statusLine)
+        if self.pendingRefresh {
+            self.pendingRefresh = false
+            try? self.refresh()
+        }
     }
 
     private func indicatorLabel(
@@ -556,6 +583,12 @@ final class AgentBarTrayHost: @unchecked Sendable {
 }
 
 private func agentBarTrayRefreshCallback(_ context: UnsafeMutableRawPointer?) {
+    guard let context else { return }
+    let host = Unmanaged<AgentBarTrayHost>.fromOpaque(context).takeUnretainedValue()
+    try? host.refresh()
+}
+
+private func agentBarTrayAutoRefreshCallback(_ context: UnsafeMutableRawPointer?) {
     guard let context else { return }
     let host = Unmanaged<AgentBarTrayHost>.fromOpaque(context).takeUnretainedValue()
     try? host.refresh()

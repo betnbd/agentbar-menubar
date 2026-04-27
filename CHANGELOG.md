@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added automatic tray usage refresh every 60 seconds, with `AGENTBAR_REFRESH_SECONDS` for local interval tuning.
 - Added a Linux app launcher installer that creates `~/.local/share/applications/agentbar.desktop`.
 - Hardened GNOME login startup by giving autostart launches a longer wait for `org.kde.StatusNotifierWatcher`.
 - Added a Linux dual-provider tray/panel monitor for Claude and Codex, including recommendation, history, and notification support.

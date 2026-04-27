@@ -82,6 +82,15 @@ struct AgentBarLinuxTests {
     }
 
     @Test
+    func trayAutoRefreshPolicyDefaultsToSixtySecondsAndAcceptsSafeOverrides() {
+        #expect(TrayAutoRefreshPolicy.interval(environment: [:]) == 60)
+        #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "120"]) == 120)
+        #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "0"]) == 60)
+        #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "5"]) == 60)
+        #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "abc"]) == 60)
+    }
+
+    @Test
     func configStoreWritesPrivateFilePermissions() throws {
         let tempRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)

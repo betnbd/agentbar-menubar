@@ -60,6 +60,8 @@ swift run AgentBarCLI config validate
 
 If the tray target was built without GTK/AppIndicator headers, `AgentBar` falls back to a terminal summary until the packages are installed and the app is rebuilt.
 
+The tray refreshes usage automatically every 60 seconds. Set `AGENTBAR_REFRESH_SECONDS=<seconds>` before launch to tune that interval; values below 15 seconds fall back to the default.
+
 ## Desktop Install Helpers
 
 Install the CLI wrapper:
@@ -130,6 +132,7 @@ npm run install:autostart
 - Tray support is unavailable at build time: install `libgtk-3-dev` and `libayatana-appindicator3-dev`, then rebuild.
 - GTK prints `Theme parsing error: gtk.css:...`: check `~/.config/gtk-3.0/gtk.css`; desktop theme tools can inject invalid GTK CSS outside AgentBar.
 - Startup timing is flaky: set `AGENTBAR_STATUS_NOTIFIER_WAIT_SECONDS=<seconds>` while testing.
+- Refresh timing needs testing: set `AGENTBAR_REFRESH_SECONDS=<seconds>`; values below 15 seconds fall back to 60 seconds.
 - You need to bypass tray preflight for debugging: run `AGENTBAR_FORCE_TRAY=1 swift run AgentBar tray`.
 
 ## Privacy
