@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added public security guidance covering local data, credential handling, file permissions, logging, and reporting.
+- Hardened file permissions for local credential/cache entries that may contain OAuth or cookie data.
+- Split the installed CLI helper to `agentbar-cli` so it no longer overwrites the tray launcher at `agentbar`.
+- Removed stale prototype wording from terminal help/summary output.
+- Improved tray refresh reliability so slow provider fetches do not block the whole tray label and refreshes do not reset the visible label to `--` while loading.
 - Added automatic tray usage refresh every 60 seconds, with `AGENTBAR_REFRESH_SECONDS` for local interval tuning.
 - Added a Linux app launcher installer that creates `~/.local/share/applications/agentbar.desktop`.
 - Hardened GNOME login startup by giving autostart launches a longer wait for `org.kde.StatusNotifierWatcher`.

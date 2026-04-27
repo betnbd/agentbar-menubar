@@ -7,7 +7,7 @@ source "${ROOT}/Scripts/swift_runtime_env.sh"
 agentbar_export_swift_runtime_env
 
 HELPER="${ROOT}/.build/debug/AgentBarCLI"
-TARGET="${HOME}/.local/bin/agentbar"
+TARGET="${HOME}/.local/bin/agentbar-cli"
 
 if [[ ! -x "$HELPER" ]]; then
   echo "==> build AgentBarCLI"

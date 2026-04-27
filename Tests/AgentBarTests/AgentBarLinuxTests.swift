@@ -175,6 +175,22 @@ struct AgentBarLinuxTests {
     }
 
     @Test
+    func keychainCacheStoreWritesPrivateFilePermissions() throws {
+        let service = "agentbar-test-\(UUID().uuidString)"
+        let key = KeychainCacheStore.Key.oauth(provider: .claude)
+
+        try KeychainCacheStore.withServiceOverrideForTesting(service) {
+            KeychainCacheStore.store(key: key, entry: ["cached": "value"])
+            let cacheURL = KeychainCacheStore.urlForTesting(key: key)
+            defer { try? FileManager.default.removeItem(at: cacheURL.deletingLastPathComponent()) }
+
+            let attributes = try FileManager.default.attributesOfItem(atPath: cacheURL.path)
+            let permissions = try #require(attributes[.posixPermissions] as? NSNumber)
+            #expect(permissions.intValue == 0o600)
+        }
+    }
+
+    @Test
     func updatedStringUsesLinuxFriendlyRelativeFormatting() {
         let now = Date(timeIntervalSince1970: 10000)
         let minutesAgo = now.addingTimeInterval(-5 * 60)

@@ -42,12 +42,17 @@ struct SessionMonitorSnapshot: Sendable {
         let requestedProviders = configuredProviders.filter { $0 == .claude || $0 == .codex }
         var providerSnapshots: [SessionMonitorProviderSnapshot] = []
 
-        if requestedProviders.contains(.claude) {
-            let claudeSnapshot = await Self.loadClaude()
+        async let claudeSnapshot: SessionMonitorProviderSnapshot? = requestedProviders.contains(.claude)
+            ? Self.loadClaude()
+            : nil
+        async let codexSnapshot: SessionMonitorProviderSnapshot? = requestedProviders.contains(.codex)
+            ? Self.loadCodex()
+            : nil
+
+        if let claudeSnapshot = await claudeSnapshot {
             providerSnapshots.append(claudeSnapshot)
         }
-        if requestedProviders.contains(.codex) {
-            let codexSnapshot = await Self.loadCodex()
+        if let codexSnapshot = await codexSnapshot {
             providerSnapshots.append(codexSnapshot)
         }
 
@@ -68,7 +73,9 @@ struct SessionMonitorSnapshot: Sendable {
     }
 
     private static func loadClaude() async -> SessionMonitorProviderSnapshot {
-        let usageFetcher = ClaudeUsageFetcher(browserDetection: BrowserDetection())
+        let usageFetcher = ClaudeUsageFetcher(
+            browserDetection: BrowserDetection(),
+            dataSource: .cli)
         let costFetcher = CostUsageFetcher()
 
         async let usage = Self.capture {
@@ -114,18 +121,16 @@ struct SessionMonitorSnapshot: Sendable {
         let usageFetcher = UsageFetcher()
         let costFetcher = CostUsageFetcher()
 
-        async let usage = Self.capture {
-            try await usageFetcher.loadLatestUsage(keepCLISessionsAlive: false)
-        }
-        async let credits = Self.capture {
-            try await usageFetcher.loadLatestCredits(keepCLISessionsAlive: false)
-        }
         async let cost = Self.capture {
             try await costFetcher.loadTokenSnapshot(provider: .codex)
         }
 
-        let usageResult = await usage
-        let creditsResult = await credits
+        let usageResult = await Self.capture {
+            try await usageFetcher.loadLatestUsage(keepCLISessionsAlive: false)
+        }
+        let creditsResult = await Self.capture {
+            try await usageFetcher.loadLatestCredits(keepCLISessionsAlive: false)
+        }
         let costResult = await cost
         let now = Date()
         let updatedAt = [
@@ -159,14 +164,46 @@ struct SessionMonitorSnapshot: Sendable {
     }
 
     private static func capture<T: Sendable>(
+        timeout: TimeInterval = 30,
         _ operation: @escaping @Sendable () async throws -> T)
         async -> PanelLoadOutcome<T>
     {
         do {
-            return try await .success(operation())
+            return try await .success(self.withTimeout(seconds: timeout, operation))
         } catch {
             let message = (error as NSError).localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
             return .failure(message.isEmpty ? "unavailable" : message)
         }
+    }
+
+    private static func withTimeout<T: Sendable>(
+        seconds: TimeInterval,
+        _ operation: @escaping @Sendable () async throws -> T)
+        async throws -> T
+    {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                let nanoseconds = UInt64(max(seconds, 1) * 1_000_000_000)
+                try await Task.sleep(nanoseconds: nanoseconds)
+                throw SessionMonitorTimeoutError(seconds: seconds)
+            }
+
+            guard let result = try await group.next() else {
+                throw SessionMonitorTimeoutError(seconds: seconds)
+            }
+            group.cancelAll()
+            return result
+        }
+    }
+}
+
+private struct SessionMonitorTimeoutError: LocalizedError {
+    let seconds: TimeInterval
+
+    var errorDescription: String? {
+        "timed out after \(Int(self.seconds.rounded())) seconds"
     }
 }

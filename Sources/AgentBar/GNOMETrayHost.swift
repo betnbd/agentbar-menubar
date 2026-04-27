@@ -339,7 +339,6 @@ final class AgentBarTrayHost: @unchecked Sendable {
             self.codexItem,
             label: state.monitorProviders.contains(.codex) ? "Codex: loading..." : "Codex: off")
         self.setMenuItem(self.statusItem, label: state.enabledProvidersLine)
-        self.setIndicatorLabel(state.indicatorLabel)
         self.usagePanel?.refresh()
         self.refreshUsageSummary(fallbackState: state)
     }

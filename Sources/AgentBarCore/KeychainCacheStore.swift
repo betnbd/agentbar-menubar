@@ -71,6 +71,9 @@ public enum KeychainCacheStore {
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
+            try FileManager.default.setAttributes([
+                .posixPermissions: NSNumber(value: Int16(0o600)),
+            ], ofItemAtPath: url.path)
         } catch {
             self.log.error("Failed to write cache entry (\(key.account)): \(error.localizedDescription)")
         }
@@ -152,6 +155,10 @@ public enum KeychainCacheStore {
         self.cacheDirectory()
             .appendingPathComponent(self.sanitized(key.category), isDirectory: true)
             .appendingPathComponent("\(self.sanitized(key.identifier)).json", isDirectory: false)
+    }
+
+    static func urlForTesting(key: Key) -> URL {
+        self.url(for: key)
     }
 
     private static func sanitized(_ raw: String) -> String {

@@ -67,7 +67,7 @@ enum AgentBar {
         let config = try store.loadOrCreateDefault()
         let enabled = config.enabledProviders().map(\.rawValue)
 
-        print("AgentBar Linux Prototype")
+        print("AgentBar")
         if showGUIFallbackMessage {
             print("GUI tray host unavailable in this session; showing terminal summary instead.")
         }
@@ -92,7 +92,7 @@ enum AgentBar {
     private static func printHelp() {
         print(
             """
-            AgentBar Linux Prototype
+            AgentBar
 
             Commands:
               tray         Launch the GNOME tray indicator when GUI is available
