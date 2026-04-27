@@ -24,6 +24,33 @@ private struct TestClaudeUsageFetcher: ClaudeUsageFetching {
     }
 }
 
+private actor AutoRefreshRecorder {
+    private var remainingSuccessfulSleeps: Int
+    private var sleepCalls: [TimeInterval] = []
+    private var refreshCount = 0
+
+    init(remainingSuccessfulSleeps: Int) {
+        self.remainingSuccessfulSleeps = remainingSuccessfulSleeps
+    }
+
+    func sleep(interval: TimeInterval) async throws {
+        self.sleepCalls.append(interval)
+        if self.remainingSuccessfulSleeps > 0 {
+            self.remainingSuccessfulSleeps -= 1
+            return
+        }
+        throw CancellationError()
+    }
+
+    func refresh() {
+        self.refreshCount += 1
+    }
+
+    func snapshot() -> (sleepCalls: [TimeInterval], refreshCount: Int) {
+        (self.sleepCalls, self.refreshCount)
+    }
+}
+
 struct AgentBarLinuxTests {
     private func makeFetchContext(
         sourceMode: ProviderSourceMode = .auto,
@@ -88,6 +115,21 @@ struct AgentBarLinuxTests {
         #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "0"]) == 60)
         #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "5"]) == 60)
         #expect(TrayAutoRefreshPolicy.interval(environment: ["AGENTBAR_REFRESH_SECONDS": "abc"]) == 60)
+    }
+
+    @Test
+    func trayAutoRefreshSchedulerWaitsForConfiguredIntervalBeforeRefreshing() async {
+        let recorder = AutoRefreshRecorder(remainingSuccessfulSleeps: 1)
+        let scheduler = TrayAutoRefreshScheduler(
+            interval: 42,
+            sleep: { interval in try await recorder.sleep(interval: interval) },
+            refresh: { await recorder.refresh() })
+
+        await scheduler.run()
+
+        let snapshot = await recorder.snapshot()
+        #expect(snapshot.sleepCalls == [42, 42])
+        #expect(snapshot.refreshCount == 1)
     }
 
     @Test

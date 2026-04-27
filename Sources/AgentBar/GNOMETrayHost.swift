@@ -345,14 +345,16 @@ final class AgentBarTrayHost: @unchecked Sendable {
     }
 
     private func startAutoRefreshLoop() {
-        let interval = TrayAutoRefreshPolicy.interval()
-        Task { [weak self] in
-            while let self {
-                try? await Task.sleep(for: .seconds(interval))
+        let scheduler = TrayAutoRefreshScheduler(
+            interval: TrayAutoRefreshPolicy.interval(),
+            refresh: { [weak self] in
+                guard let self else { return }
                 agentbar_invoke_on_main_thread(
                     agentBarTrayAutoRefreshCallback,
                     Unmanaged.passUnretained(self).toOpaque())
-            }
+            })
+        Task {
+            await scheduler.run()
         }
     }
 
