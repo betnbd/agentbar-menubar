@@ -87,8 +87,7 @@ struct SessionMonitorSnapshot: Sendable {
 
         let usageResult = await usage
         let costResult = await cost
-        let now = Date()
-        let updatedAt = [usageResult.value?.updatedAt, costResult.value?.updatedAt].compactMap(\.self).max() ?? now
+        let updatedAt = self.latestDate(usageResult.value?.updatedAt, costResult.value?.updatedAt)
         let identity = usageResult.value.map {
             ProviderIdentitySnapshot(
                 providerID: .claude,
@@ -111,10 +110,9 @@ struct SessionMonitorSnapshot: Sendable {
             monitor: monitor,
             credits: nil,
             cost: costResult,
-            statusMessages: [
-                usageResult.failureMessage.map { "Usage: \($0)" },
-                costResult.failureMessage.map { "Cost: \($0)" },
-            ].compactMap(\.self))
+            statusMessages: self.statusMessages(
+                ("Usage", usageResult.failureMessage),
+                ("Cost", costResult.failureMessage)))
     }
 
     private static func loadCodex() async -> SessionMonitorProviderSnapshot {
@@ -132,14 +130,10 @@ struct SessionMonitorSnapshot: Sendable {
             try await usageFetcher.loadLatestCredits(keepCLISessionsAlive: false)
         }
         let costResult = await cost
-        let now = Date()
-        let updatedAt = [
+        let updatedAt = self.latestDate(
             usageResult.value?.updatedAt,
             creditsResult.value?.updatedAt,
-            costResult.value?.updatedAt,
-        ]
-            .compactMap(\.self)
-            .max() ?? now
+            costResult.value?.updatedAt)
 
         let monitor = ProviderMonitorSnapshot(
             provider: .codex,
@@ -156,11 +150,20 @@ struct SessionMonitorSnapshot: Sendable {
             monitor: monitor,
             credits: creditsResult,
             cost: costResult,
-            statusMessages: [
-                usageResult.failureMessage.map { "Usage: \($0)" },
-                creditsResult.failureMessage.map { "Credits: \($0)" },
-                costResult.failureMessage.map { "Cost: \($0)" },
-            ].compactMap(\.self))
+            statusMessages: self.statusMessages(
+                ("Usage", usageResult.failureMessage),
+                ("Credits", creditsResult.failureMessage),
+                ("Cost", costResult.failureMessage)))
+    }
+
+    private static func latestDate(_ dates: Date?...) -> Date {
+        dates.compactMap(\.self).max() ?? Date()
+    }
+
+    private static func statusMessages(_ entries: (label: String, message: String?)...) -> [String] {
+        entries.compactMap { label, message in
+            message.map { "\(label): \($0)" }
+        }
     }
 
     private static func capture<T: Sendable>(

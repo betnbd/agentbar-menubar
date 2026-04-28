@@ -295,8 +295,8 @@ public enum CodexOAuthUsageFetcher {
     private static func loadConfigContents(env: [String: String]) -> String? {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let codexHome = env["CODEX_HOME"]?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let root = (codexHome?.isEmpty == false) ? URL(fileURLWithPath: codexHome!) : home
-            .appendingPathComponent(".codex")
+        let root = codexHome.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0) }
+            ?? home.appendingPathComponent(".codex")
         let url = root.appendingPathComponent("config.toml")
         return try? String(contentsOf: url, encoding: .utf8)
     }

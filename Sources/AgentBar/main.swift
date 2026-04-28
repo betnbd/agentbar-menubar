@@ -67,26 +67,33 @@ enum AgentBar {
         let config = try store.loadOrCreateDefault()
         let enabled = config.enabledProviders().map(\.rawValue)
 
-        print("AgentBar")
+        var lines = ["AgentBar"]
         if showGUIFallbackMessage {
-            print("GUI tray host unavailable in this session; showing terminal summary instead.")
+            lines.append("GUI tray host unavailable in this session; showing terminal summary instead.")
         }
         #if !canImport(CAgentBarTrayShim)
-        print("Tray support was not built because GTK 3 / Ayatana AppIndicator development files were unavailable.")
+        lines
+            .append(
+                "Tray support was not built because GTK 3 / Ayatana AppIndicator development files were unavailable.")
         #endif
-        print("Config: \(store.fileURL.path)")
-        print("Enabled providers: \(enabled.isEmpty ? "none" : enabled.joined(separator: ", "))")
-        print("")
-        print("Next steps:")
-        print("- Edit ~/.agentbar/config.json to enable or reorder providers")
-        print("- Run `swift run AgentBarCLI --help` for detailed usage commands")
-        print("- Run `swift run AgentBar providers` to inspect provider enablement")
-        print(self.trayBuildLine)
+        lines += [
+            "Config: \(store.fileURL.path)",
+            "Enabled providers: \(enabled.isEmpty ? "none" : enabled.joined(separator: ", "))",
+            "",
+            "Next steps:",
+            "- Edit ~/.agentbar/config.json to enable or reorder providers",
+            "- Run `swift run AgentBarCLI --help` for detailed usage commands",
+            "- Run `swift run AgentBar providers` to inspect provider enablement",
+            self.trayBuildLine,
+        ]
         #if canImport(CAgentBarTrayShim)
-        print("- If GNOME 50 still hides the tray, enable `ubuntu-appindicators@ubuntu.com`")
-        print("  in Extension Manager and retry")
-        print("- Set `AGENTBAR_FORCE_TRAY=1` to bypass the watcher preflight while troubleshooting")
+        lines += [
+            "- If GNOME 50 still hides the tray, enable `ubuntu-appindicators@ubuntu.com`",
+            "  in Extension Manager and retry",
+            "- Set `AGENTBAR_FORCE_TRAY=1` to bypass the watcher preflight while troubleshooting",
+        ]
         #endif
+        print(lines.joined(separator: "\n"))
     }
 
     private static func printHelp() {

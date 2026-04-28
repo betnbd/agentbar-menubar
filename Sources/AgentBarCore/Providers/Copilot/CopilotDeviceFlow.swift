@@ -4,6 +4,9 @@ import FoundationNetworking
 #endif
 
 public struct CopilotDeviceFlow: Sendable {
+    private static let deviceCodeURL = URL(string: "https://github.com/login/device/code")!
+    private static let accessTokenURL = URL(string: "https://github.com/login/oauth/access_token")!
+
     private let clientID = "Iv1.b507a08c87ecfe98" // VS Code Client ID
     private let scopes = "read:user"
 
@@ -44,21 +47,12 @@ public struct CopilotDeviceFlow: Sendable {
     public init() {}
 
     public func requestDeviceCode() async throws -> DeviceCodeResponse {
-        let components = URLComponents(string: "https://github.com/login/device/code")!
-        let request = URLRequest(url: components.url!)
-
-        var postRequest = request
-        postRequest.httpMethod = "POST"
-        postRequest.setValue("application/json", forHTTPHeaderField: "Accept")
-        postRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
-        let body = [
+        let request = Self.makePostRequest(url: Self.deviceCodeURL, body: [
             "client_id": self.clientID,
             "scope": self.scopes,
-        ]
-        postRequest.httpBody = Self.formURLEncodedBody(body)
+        ])
 
-        let (data, response) = try await URLSession.shared.data(for: postRequest)
+        let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw URLError(.badServerResponse)
@@ -68,18 +62,11 @@ public struct CopilotDeviceFlow: Sendable {
     }
 
     public func pollForToken(deviceCode: String, interval: Int) async throws -> String {
-        let url = URL(string: "https://github.com/login/oauth/access_token")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
-        let body = [
+        let request = Self.makePostRequest(url: Self.accessTokenURL, body: [
             "client_id": self.clientID,
             "device_code": deviceCode,
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-        ]
-        request.httpBody = Self.formURLEncodedBody(body)
+        ])
 
         while true {
             try await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000)
@@ -108,6 +95,15 @@ public struct CopilotDeviceFlow: Sendable {
                 return tokenResponse.accessToken
             }
         }
+    }
+
+    private static func makePostRequest(url: URL, body: [String: String]) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Self.formURLEncodedBody(body)
+        return request
     }
 
     private static func formURLEncodedBody(_ parameters: [String: String]) -> Data {

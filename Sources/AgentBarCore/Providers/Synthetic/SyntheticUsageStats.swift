@@ -92,14 +92,14 @@ extension SyntheticUsageSnapshot {
 
 public struct SyntheticUsageFetcher: Sendable {
     private static let log = AgentBarLog.logger(LogCategories.syntheticUsage)
-    private static let quotaAPIURL = "https://api.synthetic.new/v2/quotas"
+    private static let quotaAPIURL = URL(string: "https://api.synthetic.new/v2/quotas")!
 
     public static func fetchUsage(apiKey: String, now: Date = Date()) async throws -> SyntheticUsageSnapshot {
         guard !apiKey.isEmpty else {
             throw SyntheticUsageError.invalidCredentials
         }
 
-        var request = URLRequest(url: URL(string: Self.quotaAPIURL)!)
+        var request = URLRequest(url: Self.quotaAPIURL)
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
