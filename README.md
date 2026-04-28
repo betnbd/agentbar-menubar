@@ -4,7 +4,7 @@ AgentBar is a local-first Linux tray app and CLI for monitoring usage, reset win
 
 It reads local provider CLIs, known config files, browser cookies, and provider usage endpoints only for features you enable. AgentBar does not send usage data to an AgentBar backend.
 
-![AgentBar usage panel and tray menu](docs/assets/agentbar-screenshot.png)
+![AgentBar usage panel and tray menu](docs/assets/agentbar-usage-panel-sanitized.png)
 
 ## Features
 
