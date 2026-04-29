@@ -1,4 +1,9 @@
 import Foundation
+#if os(Linux)
+import Glibc
+#else
+import Darwin
+#endif
 
 public struct RateWindow: Codable, Equatable, Sendable {
     public let usedPercent: Double
@@ -345,30 +350,10 @@ private final class CodexRPCClient: @unchecked Sendable {
     private let stdinPipe = Pipe()
     private let stdoutPipe = Pipe()
     private let stderrPipe = Pipe()
-    private let stdoutLineStream: AsyncStream<Data>
-    private let stdoutLineContinuation: AsyncStream<Data>.Continuation
+    private var stdoutBuffer = Data()
     private var nextID = 1
-
-    private final class LineBuffer: @unchecked Sendable {
-        private let lock = NSLock()
-        private var buffer = Data()
-
-        func appendAndDrainLines(_ data: Data) -> [Data] {
-            self.lock.lock()
-            defer { self.lock.unlock() }
-
-            self.buffer.append(data)
-            var out: [Data] = []
-            while let newline = self.buffer.firstIndex(of: 0x0A) {
-                let lineData = Data(self.buffer[..<newline])
-                self.buffer.removeSubrange(...newline)
-                if !lineData.isEmpty {
-                    out.append(lineData)
-                }
-            }
-            return out
-        }
-    }
+    private var didShutdown = false
+    private var didLaunch = false
 
     private static func debugWriteStderr(_ message: String) {
         #if !os(Linux)
@@ -381,12 +366,6 @@ private final class CodexRPCClient: @unchecked Sendable {
         arguments: [String] = ["-s", "read-only", "-a", "untrusted", "app-server"],
         environment: [String: String] = ProcessInfo.processInfo.environment) throws
     {
-        var stdoutContinuation: AsyncStream<Data>.Continuation!
-        self.stdoutLineStream = AsyncStream<Data> { continuation in
-            stdoutContinuation = continuation
-        }
-        self.stdoutLineContinuation = stdoutContinuation
-
         let resolvedExec = BinaryLocator.resolveCodexBinary(env: environment)
             ?? TTYCommandRunner.which(executable)
 
@@ -409,30 +388,15 @@ private final class CodexRPCClient: @unchecked Sendable {
 
         do {
             try self.process.run()
+            self.didLaunch = true
             Self.log.debug("Codex RPC started", metadata: ["binary": resolvedExec])
         } catch {
             Self.log.warning("Codex RPC failed to start", metadata: ["error": error.localizedDescription])
             throw RPCWireError.startFailed(error.localizedDescription)
         }
+        _ = fcntl(self.stdoutPipe.fileHandleForReading.fileDescriptor, F_SETFL, O_NONBLOCK)
 
-        let stdoutHandle = self.stdoutPipe.fileHandleForReading
-        let stdoutLineContinuation = self.stdoutLineContinuation
-        let stdoutBuffer = LineBuffer()
-        stdoutHandle.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
-                stdoutLineContinuation.finish()
-                return
-            }
-
-            let lines = stdoutBuffer.appendAndDrainLines(data)
-
-            for lineData in lines {
-                stdoutLineContinuation.yield(lineData)
-            }
-        }
-
+        #if !os(Linux)
         let stderrHandle = self.stderrPipe.fileHandleForReading
         stderrHandle.readabilityHandler = { handle in
             let data = handle.availableData
@@ -447,6 +411,7 @@ private final class CodexRPCClient: @unchecked Sendable {
                 Self.debugWriteStderr("[codex stderr] \(line)\n")
             }
         }
+        #endif
     }
 
     func initialize(clientName: String, clientVersion: String) async throws {
@@ -467,10 +432,41 @@ private final class CodexRPCClient: @unchecked Sendable {
     }
 
     func shutdown() {
+        guard !self.didShutdown else { return }
+        self.didShutdown = true
+
+        self.stdoutPipe.fileHandleForReading.readabilityHandler = nil
+        self.stderrPipe.fileHandleForReading.readabilityHandler = nil
+
+        try? self.stdinPipe.fileHandleForWriting.close()
+
         if self.process.isRunning {
             Self.log.debug("Codex RPC stopping")
             self.process.terminate()
         }
+        if self.didLaunch {
+            self.process.waitUntilExit()
+        }
+
+        self.closePipe(self.stdinPipe)
+        self.closePipe(self.stdoutPipe)
+        self.closePipe(self.stderrPipe)
+        self.process.standardInput = nil
+        self.process.standardOutput = nil
+        self.process.standardError = nil
+    }
+
+    private func closePipe(_ pipe: Pipe) {
+        self.closeHandle(pipe.fileHandleForReading)
+        self.closeHandle(pipe.fileHandleForWriting)
+    }
+
+    private func closeHandle(_ handle: FileHandle) {
+        let fd = handle.fileDescriptor
+        if fd >= 0 {
+            _ = close(fd)
+        }
+        try? handle.close()
     }
 
     // MARK: - JSON-RPC helpers
@@ -516,13 +512,42 @@ private final class CodexRPCClient: @unchecked Sendable {
     }
 
     private func readNextMessage() async throws -> [String: Any] {
-        for await lineData in self.stdoutLineStream {
-            if lineData.isEmpty { continue }
-            if let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] {
-                return json
+        let deadline = Date().addingTimeInterval(15)
+        let fd = self.stdoutPipe.fileHandleForReading.fileDescriptor
+
+        while true {
+            while let newline = self.stdoutBuffer.firstIndex(of: 0x0A) {
+                let lineData = Data(self.stdoutBuffer[..<newline])
+                self.stdoutBuffer.removeSubrange(...newline)
+                if lineData.isEmpty { continue }
+                if let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] {
+                    return json
+                }
             }
+
+            if Date() >= deadline {
+                throw RPCWireError.malformed("codex app-server did not respond")
+            }
+
+            var tmp = [UInt8](repeating: 0, count: 64 * 1024)
+            errno = 0
+            let count = read(fd, &tmp, tmp.count)
+            if count > 0 {
+                self.stdoutBuffer.append(contentsOf: tmp.prefix(count))
+                continue
+            }
+            if count == 0 {
+                throw RPCWireError.malformed("codex app-server closed stdout")
+            }
+
+            let err = errno
+            if err == EAGAIN || err == EWOULDBLOCK || err == EINTR {
+                try await Task.sleep(nanoseconds: 20_000_000)
+                continue
+            }
+
+            throw RPCWireError.malformed("codex app-server read failed: \(String(cString: strerror(err)))")
         }
-        throw RPCWireError.malformed("codex app-server closed stdout")
     }
 
     private func decodeResult<T: Decodable>(from message: [String: Any]) throws -> T {

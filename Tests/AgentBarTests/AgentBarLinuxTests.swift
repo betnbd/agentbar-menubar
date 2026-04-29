@@ -52,6 +52,18 @@ private actor AutoRefreshRecorder {
 }
 
 struct AgentBarLinuxTests {
+    private func currentPipeFileDescriptorCount() -> Int? {
+        #if os(Linux)
+        let fdURL = URL(fileURLWithPath: "/proc/self/fd", isDirectory: true)
+        let entries = try? FileManager.default.contentsOfDirectory(at: fdURL, includingPropertiesForKeys: nil)
+        return entries?.filter { entry in
+            ((try? FileManager.default.destinationOfSymbolicLink(atPath: entry.path)) ?? "").hasPrefix("pipe:")
+        }.count
+        #else
+        return nil
+        #endif
+    }
+
     private func makeFetchContext(
         sourceMode: ProviderSourceMode = .auto,
         env: [String: String] = [:],
@@ -130,6 +142,42 @@ struct AgentBarLinuxTests {
         let snapshot = await recorder.snapshot()
         #expect(snapshot.sleepCalls == [42, 42])
         #expect(snapshot.refreshCount == 1)
+    }
+
+    @Test
+    func codexRPCProbeDoesNotLeakFileDescriptorsAcrossRefreshes() async throws {
+        #if os(Linux)
+        _ = await UsageFetcher().debugRawRateLimits()
+        let baseline = try #require(self.currentPipeFileDescriptorCount())
+
+        for _ in 0..<10 {
+            _ = await UsageFetcher().debugRawRateLimits()
+        }
+
+        let afterRefreshes = try #require(self.currentPipeFileDescriptorCount())
+        #expect(afterRefreshes <= baseline + 4)
+        #endif
+    }
+
+    @Test
+    func missingCLILookupDoesNotLeakPipeDescriptors() throws {
+        #if os(Linux)
+        let tempHome = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempHome, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempHome) }
+
+        let env = ["PATH": "", "SHELL": "/bin/sh"]
+        _ = BinaryLocator.resolveClaudeBinary(env: env, loginPATH: nil, home: tempHome.path)
+        let baseline = try #require(self.currentPipeFileDescriptorCount())
+
+        for _ in 0..<5 {
+            _ = BinaryLocator.resolveClaudeBinary(env: env, loginPATH: nil, home: tempHome.path)
+        }
+
+        let afterLookups = try #require(self.currentPipeFileDescriptorCount())
+        #expect(afterLookups <= baseline + 2)
+        #endif
     }
 
     @Test

@@ -1,4 +1,19 @@
 import Foundation
+#if os(Linux)
+import Glibc
+#else
+import Darwin
+#endif
+
+private func closeProcessPipe(_ pipe: Pipe) {
+    for handle in [pipe.fileHandleForReading, pipe.fileHandleForWriting] {
+        let fd = handle.fileDescriptor
+        if fd >= 0 {
+            _ = close(fd)
+        }
+        try? handle.close()
+    }
+}
 
 public enum PathPurpose: Hashable, Sendable {
     case rpc
@@ -265,11 +280,14 @@ public enum ShellCommandLocator {
         // CI runners can have shell init hooks that emit missing CLI errors; avoid them in CI.
         process.arguments = isCI ? ["-c", command] : ["-l", "-i", "-c", command]
         let stdout = Pipe()
+        let stderr = Pipe()
         process.standardOutput = stdout
-        process.standardError = Pipe()
+        process.standardError = stderr
         do {
             try process.run()
         } catch {
+            closeProcessPipe(stdout)
+            closeProcessPipe(stderr)
             return nil
         }
 
@@ -280,10 +298,16 @@ public enum ShellCommandLocator {
 
         if process.isRunning {
             process.terminate()
+            process.waitUntilExit()
+            closeProcessPipe(stdout)
+            closeProcessPipe(stderr)
             return nil
         }
 
+        process.waitUntilExit()
         let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        closeProcessPipe(stdout)
+        closeProcessPipe(stderr)
         return String(data: data, encoding: .utf8)
     }
 
@@ -426,11 +450,14 @@ enum LoginShellPathCapturer {
             ? ["-c", "printf '\(marker)%s\(marker)' \"$PATH\""]
             : ["-l", "-i", "-c", "printf '\(marker)%s\(marker)' \"$PATH\""]
         let stdout = Pipe()
+        let stderr = Pipe()
         process.standardOutput = stdout
-        process.standardError = Pipe()
+        process.standardError = stderr
         do {
             try process.run()
         } catch {
+            closeProcessPipe(stdout)
+            closeProcessPipe(stderr)
             return nil
         }
 
@@ -441,10 +468,16 @@ enum LoginShellPathCapturer {
 
         if process.isRunning {
             process.terminate()
+            process.waitUntilExit()
+            closeProcessPipe(stdout)
+            closeProcessPipe(stderr)
             return nil
         }
 
+        process.waitUntilExit()
         let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        closeProcessPipe(stdout)
+        closeProcessPipe(stderr)
         guard let raw = String(data: data, encoding: .utf8),
               !raw.isEmpty else { return nil }
 
