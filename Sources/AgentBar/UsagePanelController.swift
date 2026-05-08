@@ -639,7 +639,7 @@ final class UsagePanelController: @unchecked Sendable {
     }
 
     private func updateProviderButtons(snapshot: SessionMonitorSnapshot?) {
-        let claudeEnabled = snapshot?.configuredProviders.contains(.claude) ?? true
+        let claudeEnabled = snapshot?.configuredProviders.contains(.claude) ?? false
         let codexEnabled = snapshot?.configuredProviders.contains(.codex) ?? true
         let claudeLoaded = snapshot?.providers[.claude]?.hasAnyData ?? false
         let codexLoaded = snapshot?.providers[.codex]?.hasAnyData ?? false
@@ -683,7 +683,7 @@ final class UsagePanelController: @unchecked Sendable {
 
     private func configuredMonitorProviders() -> [UsageProvider] {
         let config = try? AgentBarConfigStore().loadOrCreateDefault()
-        let enabledProviders = config?.enabledProviders() ?? [.claude, .codex]
+        let enabledProviders = config?.enabledProviders() ?? [.codex]
         return enabledProviders.filter { $0 == .claude || $0 == .codex }
     }
 

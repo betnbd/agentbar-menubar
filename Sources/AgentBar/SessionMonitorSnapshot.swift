@@ -38,7 +38,7 @@ struct SessionMonitorSnapshot: Sendable {
     let availableProviders: [UsageProvider]
     let recommendation: ProviderRecommendation?
 
-    static func load(configuredProviders: [UsageProvider] = [.claude, .codex]) async -> SessionMonitorSnapshot {
+    static func load(configuredProviders: [UsageProvider] = [.codex]) async -> SessionMonitorSnapshot {
         let requestedProviders = configuredProviders.filter { $0 == .claude || $0 == .codex }
         var providerSnapshots: [SessionMonitorProviderSnapshot] = []
 

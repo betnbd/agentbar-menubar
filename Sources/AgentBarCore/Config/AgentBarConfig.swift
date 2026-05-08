@@ -115,14 +115,33 @@ public struct TrayConfig: Codable, Sendable, Equatable {
     public var preferredProvider: UsageProvider?
     public var iconMode: TrayIconMode
 
+    private enum CodingKeys: String, CodingKey {
+        case displayMode
+        case preferredProvider
+        case iconMode
+    }
+
     public init(
-        displayMode: TrayDisplayMode = .dualSummary,
-        preferredProvider: UsageProvider? = nil,
+        displayMode: TrayDisplayMode = .selectedProvider,
+        preferredProvider: UsageProvider? = .codex,
         iconMode: TrayIconMode = .providerSymbol)
     {
         self.displayMode = displayMode
         self.preferredProvider = preferredProvider
         self.iconMode = iconMode
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.displayMode = try container.decodeIfPresent(TrayDisplayMode.self, forKey: .displayMode)
+            ?? .selectedProvider
+        self.preferredProvider = if container.contains(.preferredProvider) {
+            try container.decodeIfPresent(UsageProvider.self, forKey: .preferredProvider)
+        } else {
+            .codex
+        }
+        self.iconMode = try container.decodeIfPresent(TrayIconMode.self, forKey: .iconMode)
+            ?? .providerSymbol
     }
 
     public func normalized() -> TrayConfig {

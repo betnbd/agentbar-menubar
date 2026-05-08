@@ -107,7 +107,7 @@ public struct AgentBarConfigStore: @unchecked Sendable {
            let preferredProvider = tray["preferredProvider"] as? String,
            UsageProvider(rawValue: preferredProvider) == nil
         {
-            tray.removeValue(forKey: "preferredProvider")
+            tray["preferredProvider"] = NSNull()
             object["tray"] = tray
         }
 

@@ -95,6 +95,9 @@ struct AgentBarLinuxTests {
         #expect(!config.providers.isEmpty)
         #expect(FileManager.default.fileExists(atPath: configURL.path))
         #expect(config.enabledProviders().contains(.codex))
+        #expect(config.enabledProviders() == [.codex])
+        #expect(config.tray.displayMode == .selectedProvider)
+        #expect(config.tray.preferredProvider == .codex)
     }
 
     @Test
@@ -613,6 +616,32 @@ struct AgentBarLinuxTests {
         #expect(loaded.providers.contains(where: { $0.id == .codex }))
         #expect(!loaded.providers.contains(where: { $0.id.rawValue == "not-real" }))
         #expect(loaded.tray.preferredProvider == nil)
+    }
+
+    @Test
+    func configStoreLoadsPartialTrayConfigWithDefaults() throws {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let configURL = tempRoot.appendingPathComponent("config.json")
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        try """
+        {
+          "version": 1,
+          "providers": [
+            { "id": "codex", "enabled": true },
+            { "id": "claude", "enabled": false }
+          ],
+          "tray": {
+            "displayMode": "selectedProvider",
+            "preferredProvider": "codex"
+          }
+        }
+        """.write(to: configURL, atomically: true, encoding: .utf8)
+
+        let loaded = try #require(try AgentBarConfigStore(fileURL: configURL).load())
+        #expect(loaded.tray.displayMode == .selectedProvider)
+        #expect(loaded.tray.preferredProvider == .codex)
+        #expect(loaded.tray.iconMode == .providerSymbol)
     }
 
     @Test
